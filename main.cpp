@@ -31,18 +31,48 @@ class Node {
         count_behind = left->count_behind_function() + right->count_behind_function() + 1;
     }
     void push() {
-
+        if (is_reversed) {
+            std::swap(left, right);
+            is_reversed = false;
+        }
+        if (must_be_chanded == more) {
+            if (left) {
+                left->make_more_by = make_more_by;
+                left->must_be_chanded = more;
+            }
+            if (right) {
+                right->make_more_by = make_more_by;
+                right->must_be_chanded = more;
+            }
+            key += make_more_by;
+            make_more_by = 0;
+        }
+        if (must_be_chanded == equal) {
+            if (left) {
+                left->make_equal_to = make_equal_to;
+                left->must_be_chanded = equal;
+            }
+            if (right) {
+                right->make_equal_to = make_equal_to;
+                right->must_be_chanded = equal;
+            }
+            key = make_equal_to;
+            make_equal_to = key;
+        }
+        must_be_chanded = no;
     }
     void merge(Node* l, Node* r) {
         if (!l || !r) {
             this = l ? l : r;
+            return;
         }
-        else if (l->priority < r->priority) {
-            merge(r->left, l, r->left);
+        push();
+        if (l->priority < r->priority) {
+            r->left->merge(l, r->left);
             this = r;
             update_count();
         } else{
-            merge(l->right, l->right, r);
+            l->right->merge(l->right, r);
             this = l;
             update_count();
         }
@@ -50,7 +80,7 @@ class Node {
 
 public:
     Node(long long k) : left(nullptr), right(nullptr), key(k), priority(std::rand()), count_behind(1),
-                        sum_behind(1), isReversed(false), make_more_by(0) {}
+                        sum_behind(1), is_reversed(false), make_more_by(0) {}
     ~Node() {
         if (left)
             left->~Node();
@@ -60,26 +90,30 @@ public:
     }
     friend void split(Node* my_vertex, double input_i, Node*& l, Node*& r);
 
-
-    void insert(Node* a) {
+    void insert_by_index(Node* a, double index) {
         if (this == nullptr)
             this = a;
-        else if (a->priority > this->priority) {
-            split(this, a->key, a->left, a->right);
+        push();
+        if (a->priority > this->priority) {
+            split(this, index - 1, a->left, a->right);
             this = a;
             update_count();
         } else {
-            (count_behind_function() < a->count_behind_function() ? left : right)->insert(a);
+            if (index <= left->count_behind_function() + 1)
+                left->insert_by_index(a, index);
+            else
+                right->insert_by_index(a, index - left->count_behind_function() - 1);
             update_count();
         }
     }
-    Node* find(long long index) const {
+    Node* find(long long index) {
+        push();
         long long count_left = left->count_behind_function() + 1;
         if (index == count_left)
             return this;
         if (index < count_left)
             return left->find(index);
-        return right->find(index - count_left);
+        return right->find(index - count_left - 1);
     }
     void erase() {
         Node* x = this;
@@ -99,13 +133,13 @@ public:
     BinarySearchTree(int size, int* array) {
         auto root = new Node(array[0]);
         for (int i = 1; i < size; ++i) {
-            Node* ver = new Node(i);
-            root->insert(ver);
+            Node* ver = new Node(array[i]);
+            root->insert_by_index(ver, i + 1);
         }
     }
     void insert(long long key, long long index) {
         Node* new_node = new Node(key);
-
+        root->insert_by_index(new_node, index + 1);
     }
 };
 
@@ -115,7 +149,9 @@ void split(Node* my_vertex, double input_i, Node*& l, Node*& r) {
         l = nullptr;
         r = nullptr;
         return;
-    } else if (my_vertex->left->count_behind_function() < input_i ) {
+    }
+    my_vertex->push();
+    if (my_vertex->left->count_behind_function() < input_i ) {
         split(my_vertex->right, input_i - my_vertex->left->count_behind_function() - 1, my_vertex->right, r);
         l = my_vertex;
         l->update_count();
@@ -125,4 +161,10 @@ void split(Node* my_vertex, double input_i, Node*& l, Node*& r) {
         r->update_count();
     }
     my_vertex->update_count();
+}
+
+int main() {
+    int array[5] = {1,2,3,4,5};
+    BinarySearchTree my_tree(5, std::move(array));
+
 }
