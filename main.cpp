@@ -4,6 +4,12 @@
 #include <stdio.h>
 #include <bits/shared_ptr.h>
 
+enum how {
+    no,
+    more,
+    equal
+};
+
 
 class Node {
     //left > right
@@ -13,9 +19,10 @@ class Node {
     long long priority;
     long long count_behind;
     long long sum_behind;
-    bool isReversed;
+    bool is_reversed;
     long long make_more_by;
-
+    long long make_equal_to;
+    how must_be_chanded;
 
     long long count_behind_function() {
         return this ? count_behind : 0;
