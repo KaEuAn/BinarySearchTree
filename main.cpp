@@ -2,7 +2,7 @@
 #include <vector>
 #include <random>
 #include <stdio.h>
-#include <bits/shared_ptr.h>
+#include <memory>
 
 enum how {
     no,
@@ -12,7 +12,7 @@ enum how {
 
 
 class Node {
-    //left > right
+    //left < right
     Node* left;
     Node* right;
     long long key;
@@ -27,8 +27,18 @@ class Node {
     long long count_behind_function() {
         return this ? count_behind : 0;
     }
+    long long sum_behind_function() {
+        return this ? sum_behind : 0;
+    }
     void update_count() {
         count_behind = left->count_behind_function() + right->count_behind_function() + 1;
+    }
+    void update_sum() {
+        sum_behind = left->sum_behind_function() + right->sum_behind_function() + key;
+    }
+    void update_all() {
+        update_count();
+        update_sum();
     }
     void push() {
         if (is_reversed) {
@@ -61,49 +71,37 @@ class Node {
         }
         must_be_chanded = no;
     }
-    void merge(Node* l, Node* r) {
-        if (!l || !r) {
-            this = l ? l : r;
-            return;
-        }
-        push();
-        if (l->priority < r->priority) {
-            r->left->merge(l, r->left);
-            this = r;
-            update_count();
-        } else{
-            l->right->merge(l->right, r);
-            this = l;
-            update_count();
-        }
-    }
+
 
 public:
     Node(long long k) : left(nullptr), right(nullptr), key(k), priority(std::rand()), count_behind(1),
-                        sum_behind(1), is_reversed(false), make_more_by(0) {}
+                        sum_behind(1), is_reversed(false), make_more_by(0), make_equal_to(key), must_be_chanded(no) {}
     ~Node() {
         if (left)
-            left->~Node();
+            delete left;
         if (right)
-            right->~Node();
-        delete this;
+            delete right;
+        //delete this;
     }
     friend void split(Node* my_vertex, double input_i, Node*& l, Node*& r);
+    friend Node* merge(Node* l, Node* r);
 
-    void insert_by_index(Node* a, double index) {
-        if (this == nullptr)
-            this = a;
+    Node* insert_by_index(Node* a, double index) {
+        if (! this) {
+            return a;
+        }
         push();
         if (a->priority > this->priority) {
             split(this, index - 1, a->left, a->right);
-            this = a;
-            update_count();
+            a->update_all();
+            return a;
         } else {
             if (index <= left->count_behind_function() + 1)
                 left->insert_by_index(a, index);
             else
                 right->insert_by_index(a, index - left->count_behind_function() - 1);
-            update_count();
+            update_all();
+            return this;
         }
     }
     Node* find(long long index) {
@@ -115,35 +113,93 @@ public:
             return left->find(index);
         return right->find(index - count_left - 1);
     }
-    void erase() {
+    Node* erase() {
         Node* x = this;
-        merge(left, right);
+        Node* answer = merge(left, right);
         delete x;
         x = nullptr;
+        return answer;
     }
-    void erase(long long index) {
+    Node* erase(long long index) {
         Node* deleting_node = find(index);
-        deleting_node->erase();
+        return deleting_node->erase();
+    }
+
+    Node* reverse(long long l, long long r) {
+        Node* left = nullptr; Node* center = nullptr; Node* right = nullptr;
+        split(this, l - 0.5, left, center);
+        split(center, r - l + 0.5, center, right);
+        center->is_reversed ^= true;
+        left = merge(left, center);
+        return merge(left, right);
+    }
+    long long sum(long long l, long long r) {
+        Node* left = nullptr; Node* center = nullptr; Node* right = nullptr;
+        split(this, l - 0.5, left, center);
+        split(center, r - l + 0.5, center, right);
+        return center->sum_behind_function();
+    }
+    Node* make_equal(long long l, long long r, long long new_key) {
+        Node* left = nullptr; Node* center = nullptr; Node* right = nullptr;
+        split(this, l - 0.5, left, center);
+        split(center, r - l + 0.5, center, right);
+        center->must_be_chanded = equal;
+        center->make_equal_to = new_key;
+        center->sum_behind = center->count_behind * new_key;
+        left = merge(left, center);
+        return merge(left, right);
+    }
+    Node* make_more(long long l, long long r, long long new_key) {
+        Node* left = nullptr; Node* center = nullptr; Node* right = nullptr;
+        split(this, l - 0.5, left, center);
+        split(center, r - l + 0.5, center, right);
+        center->must_be_chanded = more;
+        center->make_more_by = new_key;
+        center->sum_behind += center->count_behind * new_key;
+        left = merge(left, center);
+        return merge(left, right);
     }
 };
 
 class BinarySearchTree{
-    std::shared_ptr<Node> root;
+    Node* root;
 public:
     BinarySearchTree(int size, int* array) {
-        auto root = new Node(array[0]);
+        root = new Node(array[0]);
         for (int i = 1; i < size; ++i) {
             Node* ver = new Node(array[i]);
-            root->insert_by_index(ver, i + 1);
+            root = root->insert_by_index(ver, i + 1);
         }
+    }
+    ~BinarySearchTree() {
+        if (root)
+            delete root;
     }
     void insert(long long key, long long index) {
         Node* new_node = new Node(key);
-        root->insert_by_index(new_node, index + 1);
+        root = root->insert_by_index(new_node, index + 1);
     }
+
 };
 
-
+Node* merge(Node* l, Node* r) {
+    Node* my;
+    if (!l || !r) {
+        my = (l ? l : r);
+        return my;
+    }
+    r->push();
+    l->push();
+    if (l->priority < r->priority) {
+        r->left = merge(l, r->left);
+        my = r;
+    } else{
+        l->right = merge(l->right, r);
+        my = l;
+    }
+    my->update_all();
+    return my;
+}
 void split(Node* my_vertex, double input_i, Node*& l, Node*& r) {
     if (my_vertex == nullptr) {
         l = nullptr;
@@ -154,13 +210,13 @@ void split(Node* my_vertex, double input_i, Node*& l, Node*& r) {
     if (my_vertex->left->count_behind_function() < input_i ) {
         split(my_vertex->right, input_i - my_vertex->left->count_behind_function() - 1, my_vertex->right, r);
         l = my_vertex;
-        l->update_count();
+        l->update_all();
     } else {
         split(my_vertex->left, input_i, l, my_vertex->left);
         r = my_vertex;
-        r->update_count();
+        r->update_all();
     }
-    my_vertex->update_count();
+    my_vertex->update_all();
 }
 
 int main() {
