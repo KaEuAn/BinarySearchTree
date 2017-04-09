@@ -19,36 +19,44 @@ class Node {
     //left < right
     mutable Node* left;
     mutable Node* right;
-    mutable int key;
-    int priority;
-    mutable int count_behind;
-    mutable int sum_behind;
-    mutable int leftmost;
-    mutable int rightmost;
-    mutable int ascending_suffix_len;
-    mutable int descending_suffix_len;
+    mutable long long key;
+    long long priority;
+    mutable long long count_behind;
+    mutable long long sum_behind;
+    mutable long long leftmost;
+    mutable long long rightmost;
+    mutable long long ascending_suffix_len;
+    mutable long long descending_suffix_len;
+    mutable long long ascending_prefix_len;
+    mutable long long descending_prefix_len;
     mutable bool is_reversed;
-    mutable int make_more_by;
-    mutable int make_equal_to;
-    mutable operation must_be_chanded;
+    mutable long long make_more_by;
+    mutable long long make_equal_to;
+    mutable operation must_be_changed;
 
-    int count_behind_func() const {
+    long long count_behind_func() const {
         return this ? count_behind : 0;
     }
-    int sum_behind_func() const {
+    long long sum_behind_func() const {
         return this ? sum_behind : 0;
     }
-    int leftmost_func() const {
+    long long leftmost_func() const {
         return this ?  leftmost : 0;
     }
-    int rightmost_func() const {
+    long long rightmost_func() const {
         return this ? rightmost : 0;
     }
-    int ascending_func() const {
+    long long ascending_suffix_func() const {
         return this ? ascending_suffix_len: 0;
     }
-    int descending_func() const {
+    long long descending_suffix_func() const {
         return this ? descending_suffix_len : 0;
+    }
+    long long ascending_prefix_func() const {
+        return this ? ascending_prefix_len: 0;
+    }
+    long long descending_prefix_func() const {
+        return this ? descending_prefix_len : 0;
     }
 
     void update_count() const {
@@ -69,57 +77,123 @@ class Node {
         else
             rightmost = key;
     }
-    void update_ascending() const {
+    void update_ascending_suffix() const {
         if (!right)
             ascending_suffix_len = 1;
         else {
-            ascending_suffix_len = right->ascending_func();
-            if (right->ascending_func() != right->count_behind_func())
+            ascending_suffix_len = right->ascending_suffix_func();
+            if (right->ascending_suffix_func() != right->count_behind_func())
                 return;
-            if (key < right->leftmost_func())
-                ascending_suffix_len += 1;
+            if (key > right->leftmost_func())
+                return;
+            ascending_suffix_len += 1;
         }
-        if (left && key > left->rightmost_func())
-            ascending_suffix_len += left->ascending_func();
+        if (left && key >= left->rightmost_func())
+            ascending_suffix_len += left->ascending_suffix_func();
     }
-    void update_descending() const {
+    void update_descending_suffix() const {
         if (!right)
             descending_suffix_len = 1;
         else {
-            descending_suffix_len = right->descending_func();
-            if (right->descending_func() != right->count_behind_func())
+            descending_suffix_len = right->descending_suffix_func();
+            if (right->descending_suffix_func() != right->count_behind_func())
                 return;
-            if (key > right->leftmost_func())
-                descending_suffix_len += 1;
+            if (key < right->leftmost_func())
+                return;
+            descending_suffix_len += 1;
         }
-        if (left && key < left->rightmost_func())
-            descending_suffix_len += left->descending_func();
+        if (left && key <= left->rightmost_func())
+            descending_suffix_len += left->descending_suffix_func();
+    }
+    void update_ascending_prefix() const {
+        if (!left)
+            ascending_prefix_len = 1;
+        else {
+            ascending_prefix_len = left->ascending_prefix_func();
+            if (left->ascending_prefix_func() != left->count_behind_func())
+                return;
+            if (key < left->rightmost_func())
+                return;
+            ascending_prefix_len += 1;
+        }
+        if (right && key <= right->leftmost_func())
+            ascending_prefix_len += right->ascending_prefix_func();
+    }
+    void update_descending_prefix() const {
+        if (!left)
+            descending_prefix_len = 1;
+        else {
+            descending_prefix_len =left->descending_prefix_func();
+            if (left->descending_prefix_func() != left->count_behind_func())
+                return;
+            if (key > left->rightmost_func())
+                return;
+            descending_prefix_len += 1;
+        }
+        if (right && key >= right->leftmost_func())
+            descending_prefix_len += right->descending_prefix_func();
     }
     void update_all() const {
+        push();
+        if (left)
+            left->push();
+        if (right)
+            right->push();
         update_count();
         update_sum();
         update_leftmost();
         update_rightmost();
-        update_ascending();
-        update_descending();
+        update_ascending_suffix();
+        update_descending_suffix();
+        update_ascending_prefix();
+        update_descending_prefix();
     }
     void push() const {
         if (is_reversed) {
             std::swap(left, right);
+            std::swap(leftmost, rightmost);
+            std::swap(ascending_suffix_len, descending_prefix_len);
+            std::swap(ascending_prefix_len, descending_suffix_len);
             is_reversed = false;
             if (left)
                 left->reverse();
             if (right)
                 right->reverse();
         }
-        if (must_be_chanded == more) {
+        if (must_be_changed == more) {
             if (left) {
-                left->make_more_by = make_more_by;
-                left->must_be_chanded = more;
+                switch (left->must_be_changed) {
+                    case no: {
+                        left->make_more_by = make_more_by;
+                        left->must_be_changed = more;
+                        break;
+                    }
+                    case more: {
+                        left->make_more_by += make_more_by;
+                        break;
+                    }
+                    case equal: {
+                        left->make_equal_to += make_more_by;
+                        break;
+                    }
+                }
             }
             if (right) {
-                right->make_more_by = make_more_by;
-                right->must_be_chanded = more;
+                switch (right->must_be_changed) {
+                    case no: {
+                        right->make_more_by = make_more_by;
+                        right->must_be_changed = more;
+                        break;
+                    }
+                    case more: {
+                        right->make_more_by += make_more_by;
+                        break;
+                    }
+                    case equal: {
+                        right->make_equal_to += make_more_by;
+                        break;
+                    }
+                }
             }
             key += make_more_by;
             sum_behind += make_more_by * count_behind;
@@ -127,37 +201,41 @@ class Node {
             rightmost += make_more_by;
             make_more_by = 0;
         }
-        if (must_be_chanded == equal) {
+        if (must_be_changed == equal) {
             if (left) {
                 left->make_equal_to = make_equal_to;
-                left->must_be_chanded = equal;
+                left->must_be_changed = equal;
             }
             if (right) {
                 right->make_equal_to = make_equal_to;
-                right->must_be_chanded = equal;
+                right->must_be_changed = equal;
             }
             key = make_equal_to;
             rightmost = make_equal_to;
             leftmost = make_equal_to;
             descending_suffix_len = count_behind_func();
+            descending_prefix_len = count_behind_func();
+            ascending_prefix_len = count_behind_func();
             ascending_suffix_len = count_behind_func();
             sum_behind = make_equal_to * count_behind;
             make_equal_to = key;
         }
-        must_be_chanded = no;
+        must_be_changed = no;
     }
 
-    int find_in_desc(int find_key) {
+    long long find_in_desc(long long find_key) {
         if (!this)
             return 0;
+        push();
         if (key > find_key) {
             return right->find_in_desc(find_key) + left->count_behind_func() + 1;
         }
         return left->find_in_desc(find_key);
     }
-    int find_in_asc(int find_key) {
+    long long find_in_asc(long long find_key) {
         if (!this)
             return 0;
+        push();
         if (key < find_key) {
             return right->find_in_asc(find_key) + left->count_behind_func() + 1;
         }
@@ -165,9 +243,10 @@ class Node {
     }
 
 public:
-    Node(int k) : left(nullptr), right(nullptr), key(k), priority(std::rand()), count_behind(1),
+    Node(long long k) : left(nullptr), right(nullptr), key(k), priority(std::rand()), count_behind(1),
                   sum_behind(k), leftmost(k), rightmost(k), ascending_suffix_len(1), descending_suffix_len(1),
-                  is_reversed(false), make_more_by(0), make_equal_to(key), must_be_chanded(no) {}
+                  ascending_prefix_len(1), descending_prefix_len(1),
+                  is_reversed(false), make_more_by(0), make_equal_to(key), must_be_changed(no) {}
     ~Node() {
         if (left)
             delete left;
@@ -195,9 +274,9 @@ public:
             return this;
         }
     }
-    Node* erase(int index) {
+    Node* erase(long long index) {
         push();
-        int count_left = left->count_behind_func() + 1;
+        long long count_left = left->count_behind_func() + 1;
         if (index == count_left) {
             Node* x = this;
             Node* answer = merge(left, right);
@@ -209,39 +288,45 @@ public:
         }
         if (index < count_left) {
             left = left->erase(index);
+            update_all();
             return this;
         }
-        right = right->erase(index - left->count_behind_func());
+        right = right->erase(index - count_left);
+        update_all();
         return this;
     }
     Node* reverse() {
         is_reversed ^= true;
     }
 
-    int sum(int l, int r) const {
+    long long sum(long long l, long long r) const {
         Node* left_part = nullptr;
         Node* center = nullptr;
         Node* right_part = nullptr;
+        push();
         split(this, l - 0.5, left_part, center);
         split(center, r - l + 0.5, center, right_part);
-        int answer = center->sum_behind_func();
+        long long answer = center->sum_behind_func();
         left_part = merge(left_part, center);
         merge(left_part, right_part);
         return answer;
     }
-    void make_equal(int new_key) {
-        must_be_chanded = equal;
+    void make_equal(long long new_key) {
+        push();
+        must_be_changed = equal;
         make_equal_to = new_key;
     }
-    void make_more(int new_key) {
-        must_be_chanded = more;
+    void make_more(long long new_key) {
+        push();
+        must_be_changed = more;
         make_more_by = new_key;
     }
 
     Node* make_next_permutation() {
         if (!this)
             return this;
-        if (descending_func() == count_behind_func()) {
+        push();
+        if (descending_suffix_func() == count_behind_func()) {
             reverse();
             return this;
         }
@@ -249,8 +334,8 @@ public:
         Node* center = nullptr;
         Node* right_part = nullptr;
         split(this, count_behind_func() - descending_suffix_len - 0.5, left_part, right_part);
-        int first_node_key = left_part->rightmost;
-        int center_count = right_part->find_in_desc(first_node_key);
+        long long first_node_key = left_part->rightmost;
+        long long center_count = right_part->find_in_desc(first_node_key);
         Node* first_node;
         split(left_part, left_part->count_behind_func() - 1, left_part, first_node);
         Node* second_node;
@@ -265,7 +350,8 @@ public:
     Node* make_prev_permutation() {
         if (!this)
             return this;
-        if (ascending_func() == count_behind_func()) {
+        push();
+        if (ascending_suffix_func() == count_behind_func()) {
             reverse();
             return this;
         }
@@ -273,8 +359,8 @@ public:
         Node* center = nullptr;
         Node* right_part = nullptr;
         split(this, count_behind_func() - ascending_suffix_len - 0.5, left_part, right_part);
-        int first_node_key = left_part->rightmost;
-        int center_count = right_part->find_in_asc(first_node_key);
+        long long first_node_key = left_part->rightmost;
+        long long center_count = right_part->find_in_asc(first_node_key);
         Node* first_node;
         split(left_part, left_part->count_behind_func() - 1, left_part, first_node);
         Node* second_node;
@@ -287,7 +373,7 @@ public:
         return merge(left_part, right_part);
     }
 
-    Node* split_and_do(int l, int r, operation x, int new_key = 0) {
+    Node* split_and_do(long long l, long long r, operation x, long long new_key = 0) {
         Node* left_part = nullptr;
         Node* center = nullptr;
         Node* right_part = nullptr;
@@ -327,9 +413,9 @@ public:
 class BinarySearchTree{
     Node* root;
 public:
-    BinarySearchTree(int size, int* array) {
+    BinarySearchTree(long long size, long long* array) {
         root = new Node(array[0]);
-        for (int i = 1; i < size; ++i) {
+        for (long long i = 1; i < size; ++i) {
             Node* ver = new Node(array[i]);
             root = root->insert_by_index(ver, i + 1);
         }
@@ -339,26 +425,26 @@ public:
             delete root;
     }
 
-    int sum(int l, int r) const {
+    long long sum(long long l, long long r) const {
         return root->sum(l, r);
     }
-    void insert(int key, int index) {
+    void insert(long long key, long long index) {
         Node* new_node = new Node(key);
         root = root->insert_by_index(new_node, index + 1);
     }
-    void erase(int index) {
+    void erase(long long index) {
         root = root->erase(index);
     }
-    void make_equal(int l, int r, int new_key) {
+    void make_equal(long long l, long long r, long long new_key) {
         root = root->split_and_do(l, r, equal, new_key);
     }
-    void make_more(int l, int r, int new_key) {
+    void make_more(long long l, long long r, long long new_key) {
         root = root->split_and_do(l, r, more, new_key);
     }
-    void make_next_permutation(int l, int r) {
+    void make_next_permutation(long long l, long long r) {
         root = root->split_and_do(l, r, next_permutation);
     }
-    void make_prev_permutation(int l, int r) {
+    void make_prev_permutation(long long l, long long r) {
         root = root->split_and_do(l, r, prev_permutation);
     }
     void print() {
@@ -405,23 +491,23 @@ void split(const Node* my_vertex, double input_i, Node*& l, Node*& r) {
 }
 
 int main() {
-    int size;
+    long long size;
     std::cin >> size;
-    int array[size];
-    for (int i = 0; i < size; ++i) {
+    long long array[size];
+    for (long long i = 0; i < size; ++i) {
         std::cin >> array[i];
     }
     BinarySearchTree MyTree(size, array);
-    int operations_amount;
+    long long operations_amount;
     std::cin >> operations_amount;
-    for (int i = 0; i < operations_amount; ++i) {
-        int number;
-        int l, r, x;
+    for (long long i = 0; i < operations_amount; ++i) {
+        long long number;
+        long long l, r, x;
         std::cin >> number;
         switch (number){
             case 1:
                 std::cin >> l >> r;
-                std::cout << MyTree.sum(l, r);
+                std::cout << MyTree.sum(l, r) << '\n';
                 break;
             case 2:
                 std::cin >> l >> r;
@@ -429,7 +515,7 @@ int main() {
                 break;
             case 3:
                 std::cin >> x;
-                MyTree.erase(x);
+                MyTree.erase(x + 1);
                 break;
             case 4:
                 std::cin >> x >> l >> r;
@@ -448,7 +534,6 @@ int main() {
                 MyTree.make_prev_permutation(l, r);
                 break;
         }
-        MyTree.print();
     }
     MyTree.print();
 }
