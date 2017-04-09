@@ -60,19 +60,21 @@ class Node {
     void update_leftmost() const {
         if (left)
             leftmost = left->leftmost_func();
-        leftmost = key;
+        else
+            leftmost = key;
     }
     void update_rightmost() const {
         if (right)
             rightmost = right->rightmost_func();
-        rightmost = key;
+        else
+            rightmost = key;
     }
     void update_ascending() const {
         if (!right)
             ascending_suffix_len = 1;
         else {
             ascending_suffix_len = right->ascending_func();
-            if (right->descending_func() != right->count_behind_func())
+            if (right->ascending_func() != right->count_behind_func())
                 return;
             if (key < right->leftmost_func())
                 ascending_suffix_len += 1;
@@ -105,6 +107,10 @@ class Node {
         if (is_reversed) {
             std::swap(left, right);
             is_reversed = false;
+            if (left)
+                left->reverse();
+            if (right)
+                right->reverse();
         }
         if (must_be_chanded == more) {
             if (left) {
@@ -135,7 +141,7 @@ class Node {
             leftmost = make_equal_to;
             descending_suffix_len = count_behind_func();
             ascending_suffix_len = count_behind_func();
-            sum_behind = make_more_by * count_behind;
+            sum_behind = make_equal_to * count_behind;
             make_equal_to = key;
         }
         must_be_chanded = no;
@@ -160,7 +166,7 @@ class Node {
 
 public:
     Node(int k) : left(nullptr), right(nullptr), key(k), priority(std::rand()), count_behind(1),
-                  sum_behind(1), leftmost(k), rightmost(k), ascending_suffix_len(1), descending_suffix_len(1),
+                  sum_behind(k), leftmost(k), rightmost(k), ascending_suffix_len(1), descending_suffix_len(1),
                   is_reversed(false), make_more_by(0), make_equal_to(key), must_be_chanded(no) {}
     ~Node() {
         if (left)
@@ -195,6 +201,8 @@ public:
         if (index == count_left) {
             Node* x = this;
             Node* answer = merge(left, right);
+            x->left = nullptr;
+            x->right = nullptr;
             delete x;
             x = nullptr;
             return answer;
@@ -206,16 +214,20 @@ public:
         right = right->erase(index - left->count_behind_func());
         return this;
     }
-
     Node* reverse() {
         is_reversed ^= true;
     }
 
     int sum(int l, int r) const {
-        Node* left = nullptr; Node* center = nullptr; Node* right = nullptr;
-        split(this, l - 0.5, left, center);
-        split(center, r - l + 0.5, center, right);
-        return center->sum_behind_func();
+        Node* left_part = nullptr;
+        Node* center = nullptr;
+        Node* right_part = nullptr;
+        split(this, l - 0.5, left_part, center);
+        split(center, r - l + 0.5, center, right_part);
+        int answer = center->sum_behind_func();
+        left_part = merge(left_part, center);
+        merge(left_part, right_part);
+        return answer;
     }
     void make_equal(int new_key) {
         must_be_chanded = equal;
@@ -227,6 +239,12 @@ public:
     }
 
     Node* make_next_permutation() {
+        if (!this)
+            return this;
+        if (descending_func() == count_behind_func()) {
+            reverse();
+            return this;
+        }
         Node* left_part = nullptr;
         Node* center = nullptr;
         Node* right_part = nullptr;
@@ -234,18 +252,23 @@ public:
         int first_node_key = left_part->rightmost;
         int center_count = right_part->find_in_desc(first_node_key);
         Node* first_node;
-        split(right_part, right_part->count_behind_func() - 1, right_part, first_node);
+        split(left_part, left_part->count_behind_func() - 1, left_part, first_node);
         Node* second_node;
-        split(left_part, center_count - 0.5, center, left_part);
-        split(left_part, 1.5, second_node, left_part);
-        left_part = merge(first_node, left_part);
-        left_part = merge(center, left_part);
-        left_part->reverse();
-        left_part = merge(second_node, left_part);
-        return merge(right_part, left_part);
+        split(right_part, center_count - 1.5, center, right_part);
+        split(right_part, 0.5, second_node, right_part);
+        right_part = merge(first_node, right_part);
+        right_part = merge(center, right_part);
+        right_part->reverse();
+        right_part = merge(second_node, right_part);
+        return merge(left_part, right_part);
     }
-
     Node* make_prev_permutation() {
+        if (!this)
+            return this;
+        if (ascending_func() == count_behind_func()) {
+            reverse();
+            return this;
+        }
         Node* left_part = nullptr;
         Node* center = nullptr;
         Node* right_part = nullptr;
@@ -253,15 +276,15 @@ public:
         int first_node_key = left_part->rightmost;
         int center_count = right_part->find_in_asc(first_node_key);
         Node* first_node;
-        split(right_part, right_part->count_behind_func() - 1, right_part, first_node);
+        split(left_part, left_part->count_behind_func() - 1, left_part, first_node);
         Node* second_node;
-        split(left_part, center_count - 0.5, center, left_part);
-        split(left_part, 1.5, second_node, left_part);
-        left_part = merge(first_node, left_part);
-        left_part = merge(center, left_part);
-        left_part->reverse();
-        left_part = merge(second_node, left_part);
-        return merge(right_part, left_part);
+        split(right_part, center_count - 1.5, center, right_part);
+        split(right_part, 0.5, second_node, right_part);
+        right_part = merge(first_node, right_part);
+        right_part = merge(center, right_part);
+        right_part->reverse();
+        right_part = merge(second_node, right_part);
+        return merge(left_part, right_part);
     }
 
     Node* split_and_do(int l, int r, operation x, int new_key = 0) {
@@ -289,6 +312,15 @@ public:
         }
         left_part = merge(left_part, center);
         return merge(left_part, right_part);
+
+    }
+    void print() {
+        push();
+        if (left)
+            left->print();
+        std::cout << key << ' ';
+        if (right)
+            right->print();
     }
 };
 
@@ -329,7 +361,10 @@ public:
     void make_prev_permutation(int l, int r) {
         root = root->split_and_do(l, r, prev_permutation);
     }
-
+    void print() {
+        root->print();
+        std::cout << '\n';
+    }
 };
 
 Node* merge(Node* l, Node* r) {
@@ -351,7 +386,7 @@ Node* merge(Node* l, Node* r) {
     return my;
 }
 void split(const Node* my_vertex, double input_i, Node*& l, Node*& r) {
-    if (my_vertex == nullptr) {
+    if (!my_vertex) {
         l = nullptr;
         r = nullptr;
         return;
@@ -386,11 +421,11 @@ int main() {
         switch (number){
             case 1:
                 std::cin >> l >> r;
-                std::cout << MyTree.sum(l - 1, r - 1);
+                std::cout << MyTree.sum(l, r);
                 break;
             case 2:
                 std::cin >> l >> r;
-                MyTree.insert(l - 1, r - 1);
+                MyTree.insert(l, r);
                 break;
             case 3:
                 std::cin >> x;
@@ -398,20 +433,22 @@ int main() {
                 break;
             case 4:
                 std::cin >> x >> l >> r;
-                MyTree.make_equal(l + 1, r + 1, x);
+                MyTree.make_equal(l, r, x);
                 break;
             case 5:
                 std::cin >> x >> l >> r;
-                MyTree.make_more(l + 1, r + 1, x);
+                MyTree.make_more(l, r, x);
                 break;
             case 6:
-                std::cin >> x >> l >> r;
-                MyTree.make_next_permutation(l + 1, r + 1);
+                std::cin >> l >> r;
+                MyTree.make_next_permutation(l, r);
                 break;
             case 7:
-                std::cin >> x >> l >> r;
-                MyTree.make_prev_permutation(l + 1, r + 1);
+                std::cin >>l >> r;
+                MyTree.make_prev_permutation(l, r);
                 break;
         }
+        MyTree.print();
     }
+    MyTree.print();
 }
